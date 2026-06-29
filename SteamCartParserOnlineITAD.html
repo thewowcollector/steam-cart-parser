@@ -305,6 +305,15 @@ function cleanTitle(title) {
     .trim();
 }
 
+const WORKER = 'https://broad-sun-7449.thewowcollector.workers.dev';
+
+function workerFetch(endpoint, apiKey, method = 'GET', body = null, extraParams = '') {
+  const url = `${WORKER}?endpoint=${encodeURIComponent(endpoint)}&key=${encodeURIComponent(apiKey)}${extraParams}`;
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(url, opts);
+}
+
 async function fetchITAD() {
   const apiKey = document.getElementById('apiKey').value.trim();
   if (!apiKey) { alert('Please enter your IsThereAnyDeal API key first.'); return; }
@@ -325,7 +334,7 @@ async function fetchITAD() {
     status.textContent = `Searching ${i + 1} of ${parsedItems.length}...`;
     try {
       const query = cleanTitle(item.title);
-      const searchRes = await fetch(`https://api.isthereanydeal.com/games/search/v1?title=${encodeURIComponent(query)}&key=${apiKey}`);
+      const searchRes = await workerFetch('/games/search/v1', apiKey, 'GET', null, `&title=${encodeURIComponent(query)}`);
       if (!searchRes.ok) throw new Error(`HTTP ${searchRes.status}`);
       const searchData = await searchRes.json();
       if (!searchData || searchData.length === 0) {
@@ -353,12 +362,8 @@ async function fetchITAD() {
     status.textContent = 'Fetching prices...';
     try {
       const [lowRes, curRes] = await Promise.all([
-        fetch(`https://api.isthereanydeal.com/games/historylows/v1?key=${apiKey}`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validIds)
-        }),
-        fetch(`https://api.isthereanydeal.com/games/prices/v3?key=${apiKey}&country=US`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validIds)
-        })
+        workerFetch('/games/historylows/v1', apiKey, 'POST', validIds),
+        workerFetch('/games/prices/v3', apiKey, 'POST', validIds, '&country=US')
       ]);
 
       const lowData = lowRes.ok ? await lowRes.json() : [];
