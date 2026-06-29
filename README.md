@@ -8,8 +8,8 @@ A simple tool that converts your Steam shopping cart into a clean, easy to read 
 
 ### Step 1 — Copy your Steam cart text
 
-1. Open your Steam shopping cart in your browser
-2. Select all the text on the page (Ctrl + A)
+1. Open your Steam shopping cart in your browser or from the desktop app
+2. Select all the text on the page (Ctrl + A) or simply click and drag
 3. Copy it (Ctrl + C)
 
 ### Step 2 — Paste and parse
