@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steam Cart Parser</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1b2838;
+    color: #c6d4df;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  h1 { font-size: 22px; font-weight: 500; color: #ffffff; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #8f98a0; margin-bottom: 1.5rem; }
+
+  textarea {
+    width: 100%;
+    height: 160px;
+    background: #2a3f5f;
+    border: 1px solid #4c6b8a;
+    border-radius: 4px;
+    color: #c6d4df;
+    font-family: 'Consolas', monospace;
+    font-size: 13px;
+    padding: 10px 12px;
+    resize: vertical;
+    outline: none;
+  }
+
+  textarea::placeholder { color: #5a7a96; }
+  textarea:focus { border-color: #66c0f4; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+
+  button {
+    padding: 8px 20px;
+    border-radius: 3px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary { background: #4c7a9e; color: #ffffff; }
+  .btn-primary:hover { background: #5a8ab0; }
+
+  .btn-secondary { background: #2a3f5f; color: #c6d4df; border: 1px solid #4c6b8a; }
+  .btn-secondary:hover { background: #344d6b; }
+
+  .btn-copy { background: #3a7d44; color: #ffffff; }
+  .btn-copy:hover { background: #45914f; }
+
+  .btn-discord { background: #5865f2; color: #ffffff; }
+  .btn-discord:hover { background: #6b77f5; }
+
+  #output { margin-top: 1.5rem; }
+
+  #error { color: #e87e7e; font-size: 13px; margin-top: 8px; display: none; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #2a3f5f;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  thead tr { background: #1e3350; color: #8f98a0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  th { padding: 10px 12px; text-align: left; font-weight: 500; border-bottom: 1px solid #3d5a73; }
+  th.right, td.right { text-align: right; }
+
+  tbody tr { border-bottom: 1px solid #243347; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #314f6b; }
+
+  td { padding: 8px 12px; color: #c6d4df; }
+
+  .num { color: #5a7a96; width: 36px; }
+  .disc { color: #5ba85b; font-weight: 500; }
+  .orig { color: #5a7a96; text-decoration: line-through; }
+  .sale { color: #ffffff; font-weight: 500; }
+
+  tfoot tr { background: #1e3350; border-top: 2px solid #4c6b8a; }
+  tfoot td { padding: 10px 12px; color: #ffffff; font-weight: 500; font-size: 14px; }
+
+  .copied-msg { font-size: 12px; color: #5ba85b; margin-left: 4px; display: none; }
+</style>
+</head>
+<body>
+
+<h1>Steam Cart Parser</h1>
+<p class="subtitle">Paste your Steam cart text below and click Parse.</p>
+
+<textarea id="input" placeholder="Paste Steam cart text here..."></textarea>
+<p id="error">No items found — make sure you pasted the full Steam cart text.</p>
+
+<div class="btn-row">
+  <button class="btn-primary" onclick="parse()">Parse Cart</button>
+  <button class="btn-secondary" onclick="clearAll()">Clear</button>
+  <button class="btn-copy" onclick="copyTable()" id="copyBtn" style="display:none;">Copy as Text</button>
+  <button class="btn-discord" onclick="copyDiscord()" id="discordBtn" style="display:none;">Copy for Discord</button>
+  <span class="copied-msg" id="copiedMsg">Copied!</span>
+</div>
+
+<div id="discord-parts"></div>
+<div id="output"></div>
+
+<script>
+let parsedItems = [];
+
+function parse() {
+  const raw = document.getElementById('input').value.trim();
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const error = document.getElementById('error');
+  error.style.display = 'none';
+  parsedItems = [];
+
+  let i = 0;
+  while (i < lines.length) {
+    const title = lines[i];
+    if (!title || title === 'Add' || title === 'Remove' || title === '|' ||
+        title.startsWith('Includes ') || title.startsWith('-') || title.startsWith('$')) {
+      i++; continue;
+    }
+    if (lines[i + 1] === title) {
+      i += 2;
+      if (lines[i] && lines[i].startsWith('Includes ')) i++;
+      const disc = lines[i];
+      if (!disc || !disc.startsWith('-')) { i++; continue; }
+      i++;
+      const orig = lines[i];
+      if (!orig || !orig.startsWith('$')) { i++; continue; }
+      i++;
+      const sale = lines[i];
+      if (!sale || !sale.startsWith('$')) { i++; continue; }
+      i++;
+      while (i < lines.length && (lines[i] === 'Add' || lines[i] === '|' || lines[i] === 'Remove')) i++;
+      parsedItems.push({ title, disc, orig, sale });
+    } else {
+      i++;
+    }
+  }
+
+  if (parsedItems.length === 0) {
+    error.style.display = 'block';
+    document.getElementById('output').innerHTML = '';
+    document.getElementById('copyBtn').style.display = 'none';
+    document.getElementById('discordBtn').style.display = 'none';
+    return;
+  }
+
+  renderTable();
+  document.getElementById('copyBtn').style.display = 'inline-block';
+  document.getElementById('discordBtn').style.display = 'inline-block';
+  document.getElementById('copiedMsg').style.display = 'none';
+  document.getElementById('discord-parts').innerHTML = '';
+}
+
+function renderTable() {
+  const total = parsedItems.reduce((sum, it) => sum + parseFloat(it.sale.replace('$', '')), 0);
+
+  let html = `<table><thead><tr>
+    <th class="num">#</th>
+    <th>Title</th>
+    <th class="right">Discount</th>
+    <th class="right">Original</th>
+    <th class="right">Sale Price</th>
+  </tr></thead><tbody>`;
+
+  parsedItems.forEach((it, idx) => {
+    html += `<tr>
+      <td class="num">${idx + 1}</td>
+      <td>${it.title}</td>
+      <td class="disc right">${it.disc}</td>
+      <td class="orig right">${it.orig}</td>
+      <td class="sale right">${it.sale}</td>
+    </tr>`;
+  });
+
+  html += `</tbody><tfoot><tr>
+    <td></td>
+    <td>Total (${parsedItems.length} items)</td>
+    <td></td><td></td>
+    <td class="right">$${total.toFixed(2)}</td>
+  </tr></tfoot></table>`;
+
+  document.getElementById('output').innerHTML = html;
+}
+
+function clearAll() {
+  document.getElementById('input').value = '';
+  document.getElementById('output').innerHTML = '';
+  document.getElementById('error').style.display = 'none';
+  document.getElementById('copyBtn').style.display = 'none';
+  document.getElementById('discordBtn').style.display = 'none';
+  document.getElementById('copiedMsg').style.display = 'none';
+  document.getElementById('discord-parts').innerHTML = '';
+  parsedItems = [];
+}
+
+function copyDiscord() {
+  if (parsedItems.length === 0) return;
+  const total = parsedItems.reduce((sum, it) => sum + parseFloat(it.sale.replace('$', '')), 0);
+
+  const colW = {
+    num: 3,
+    title: Math.min(45, Math.max(...parsedItems.map(it => it.title.length), 5)),
+    disc: 8,
+    orig: 9,
+    sale: 10
+  };
+
+  const pad = (s, w, right = false) => right ? String(s).padStart(w) : String(s).padEnd(w);
+  const divider = '─'.repeat(colW.num + 2 + colW.title + 2 + colW.disc + 2 + colW.orig + 2 + colW.sale);
+  const header = pad('#', colW.num) + '  ' + pad('Title', colW.title) + '  ' + pad('Discount', colW.disc, true) + '  ' + pad('Original', colW.orig, true) + '  ' + pad('Sale Price', colW.sale, true);
+  const totalRow = pad('', colW.num) + '  ' + pad(`Total (${parsedItems.length} items)`, colW.title) + '  ' + pad('', colW.disc) + '  ' + pad('', colW.orig) + '  ' + pad('$' + total.toFixed(2), colW.sale, true);
+
+  const itemRows = parsedItems.map((it, idx) => {
+    const titleTrunc = it.title.length > colW.title ? it.title.slice(0, colW.title - 1) + '…' : it.title;
+    return pad(idx + 1, colW.num) + '  ' + pad(titleTrunc, colW.title) + '  ' + pad(it.disc, colW.disc, true) + '  ' + pad(it.orig, colW.orig, true) + '  ' + pad(it.sale, colW.sale, true);
+  });
+
+  const LIMIT = 1990;
+  const blocks = [];
+  let currentRows = [];
+
+  const buildBlock = (rows, isLast) => {
+    let lines = [header, divider, ...rows, divider];
+    if (isLast) lines.push(totalRow);
+    return '```\n' + lines.join('\n') + '\n```';
+  };
+
+  for (let i = 0; i < itemRows.length; i++) {
+    currentRows.push(itemRows[i]);
+    const isLast = i === itemRows.length - 1;
+    const preview = buildBlock(currentRows, isLast);
+    if (preview.length > LIMIT) {
+      currentRows.pop();
+      blocks.push(buildBlock(currentRows, false));
+      currentRows = [itemRows[i]];
+    }
+    if (isLast && currentRows.length > 0) {
+      blocks.push(buildBlock(currentRows, true));
+    }
+  }
+
+  const container = document.getElementById('discord-parts');
+  container.innerHTML = '';
+
+  if (blocks.length === 1) {
+    navigator.clipboard.writeText(blocks[0]).then(() => {
+      const msg = document.getElementById('copiedMsg');
+      msg.textContent = 'Copied!';
+      msg.style.display = 'inline';
+      setTimeout(() => { msg.style.display = 'none'; }, 2000);
+    });
+    return;
+  }
+
+  blocks.forEach((block, i) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-top: 12px; display: flex; align-items: center; gap: 10px;';
+    const btn = document.createElement('button');
+    btn.className = 'btn-discord';
+    btn.textContent = `Copy Message ${i + 1} of ${blocks.length}`;
+    btn.style.whiteSpace = 'nowrap';
+    btn.onclick = () => {
+      navigator.clipboard.writeText(block).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = `Copy Message ${i + 1} of ${blocks.length}`, 2000);
+      });
+    };
+    const preview = document.createElement('span');
+    preview.style.cssText = 'font-size: 12px; color: #8f98a0;';
+    const prevCount = blocks.slice(0, i).reduce((sum, b) => sum + b.split('\n').filter(l => l.match(/^\s*\d/)).length, 0);
+    const thisCount = blocks.slice(0, i + 1).reduce((sum, b) => sum + b.split('\n').filter(l => l.match(/^\s*\d/)).length, 0);
+    preview.textContent = `items ${prevCount + 1}–${thisCount}`;
+    wrap.appendChild(btn);
+    wrap.appendChild(preview);
+    container.appendChild(wrap);
+  });
+}
+
+function copyTable() {
+  if (parsedItems.length === 0) return;
+  const total = parsedItems.reduce((sum, it) => sum + parseFloat(it.sale.replace('$', '')), 0);
+  let text = '#\tTitle\tDiscount\tOriginal\tSale Price\n';
+  parsedItems.forEach((it, idx) => {
+    text += `${idx + 1}\t${it.title}\t${it.disc}\t${it.orig}\t${it.sale}\n`;
+  });
+  text += `\nTotal (${parsedItems.length} items)\t\t\t$${total.toFixed(2)}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const msg = document.getElementById('copiedMsg');
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2000);
+  });
+}
+</script>
+</body>
+</html>
