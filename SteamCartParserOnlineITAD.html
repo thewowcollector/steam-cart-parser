@@ -368,8 +368,20 @@ async function fetchITAD() {
       const lowData = lowRes.ok ? await lowRes.json() : [];
       const curData = curRes.ok ? await curRes.json() : [];
 
+      console.log('History lows raw:', JSON.stringify(lowData).slice(0, 500));
+      console.log('Current prices raw:', JSON.stringify(curData).slice(0, 500));
+
       const lowMap = {};
-      lowData.forEach(entry => { if (entry.low) lowMap[entry.id] = entry.low.price.amount; });
+      if (Array.isArray(lowData)) {
+        lowData.forEach(entry => {
+          if (entry.low) lowMap[entry.id] = entry.low.price.amount;
+        });
+      } else if (typeof lowData === 'object') {
+        Object.entries(lowData).forEach(([id, val]) => {
+          if (val && val.low) lowMap[id] = val.low.price.amount;
+          else if (val && val.price) lowMap[id] = val.price.amount;
+        });
+      }
 
       const curMap = {};
       curData.forEach(entry => {
