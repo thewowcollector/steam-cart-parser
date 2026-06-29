@@ -11,7 +11,7 @@ A simple tool that converts your Steam shopping cart into a clean, easy to read 
 | Basic (no API needed) | https://thewowcollector.github.io/steam-cart-parser/SteamCartParser.html |
 | ITAD Version (with best prices) | https://thewowcollector.github.io/steam-cart-parser/SteamCartParserOnlineITAD.html |
 
-Both pages have a **Download Local Version** button in the top right corner if you prefer to run it offline.
+Basic has a **Download Local Version** button in the top right corner if you prefer to run it offline.
 
 ---
 
