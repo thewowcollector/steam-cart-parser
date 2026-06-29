@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steam Cart Parser + ITAD</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1b2838;
+    color: #c6d4df;
+    min-height: 100vh;
+    padding: 2rem;
+  }
+
+  .header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
+  h1 { font-size: 22px; font-weight: 500; color: #ffffff; }
+  .subtitle { font-size: 13px; color: #8f98a0; margin-bottom: 1.5rem; }
+
+  .api-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+    background: #1e3350;
+    border: 1px solid #3d5a73;
+    border-radius: 4px;
+    padding: 10px 14px;
+    flex-wrap: wrap;
+  }
+
+  .api-row label { font-size: 13px; color: #8f98a0; white-space: nowrap; }
+
+  .api-row input {
+    flex: 1;
+    min-width: 200px;
+    background: #2a3f5f;
+    border: 1px solid #4c6b8a;
+    border-radius: 4px;
+    color: #c6d4df;
+    font-family: 'Consolas', monospace;
+    font-size: 13px;
+    padding: 6px 10px;
+    outline: none;
+  }
+
+  .api-row input:focus { border-color: #66c0f4; }
+  .api-row input::placeholder { color: #5a7a96; }
+  .api-hint { font-size: 12px; color: #5a7a96; white-space: nowrap; }
+  .api-hint a { color: #66c0f4; }
+
+  textarea {
+    width: 100%;
+    height: 160px;
+    background: #2a3f5f;
+    border: 1px solid #4c6b8a;
+    border-radius: 4px;
+    color: #c6d4df;
+    font-family: 'Consolas', monospace;
+    font-size: 13px;
+    padding: 10px 12px;
+    resize: vertical;
+    outline: none;
+  }
+
+  textarea::placeholder { color: #5a7a96; }
+  textarea:focus { border-color: #66c0f4; }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+
+  button {
+    padding: 8px 20px;
+    border-radius: 3px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+  }
+
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .btn-primary { background: #4c7a9e; color: #ffffff; }
+  .btn-primary:hover:not(:disabled) { background: #5a8ab0; }
+
+  .btn-secondary { background: #2a3f5f; color: #c6d4df; border: 1px solid #4c6b8a; }
+  .btn-secondary:hover:not(:disabled) { background: #344d6b; }
+
+  .btn-copy { background: #3a7d44; color: #ffffff; }
+  .btn-copy:hover:not(:disabled) { background: #45914f; }
+
+  .btn-discord { background: #5865f2; color: #ffffff; }
+  .btn-discord:hover:not(:disabled) { background: #6b77f5; }
+
+  .btn-itad { background: #c27d20; color: #ffffff; }
+  .btn-itad:hover:not(:disabled) { background: #d48e30; }
+
+  .btn-download { background: #2a475e; color: #c6d4df; border: 1px solid #4c6b8a; }
+  .btn-download:hover { background: #344d6b; }
+
+  #output { margin-top: 1.5rem; }
+  #error { color: #e87e7e; font-size: 13px; margin-top: 8px; display: none; }
+  #itad-status { font-size: 12px; color: #8f98a0; margin-left: 4px; display: none; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: #2a3f5f;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  thead tr { background: #1e3350; color: #8f98a0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+  th { padding: 10px 12px; text-align: left; font-weight: 500; border-bottom: 1px solid #3d5a73; }
+  th.right, td.right { text-align: right; }
+
+  tbody tr { border-bottom: 1px solid #243347; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #314f6b; }
+
+  td { padding: 8px 12px; color: #c6d4df; }
+
+  .num { color: #5a7a96; width: 36px; }
+  .disc { color: #5ba85b; font-weight: 500; }
+  .orig { color: #5a7a96; text-decoration: line-through; }
+  .sale { color: #ffffff; font-weight: 500; }
+  .best-price { color: #f0a030; font-weight: 500; }
+  .best-price.better { color: #5ba85b; }
+  .best-price.loading { color: #5a7a96; font-style: italic; }
+
+  tfoot tr { background: #1e3350; border-top: 2px solid #4c6b8a; }
+  tfoot td { padding: 10px 12px; color: #ffffff; font-weight: 500; font-size: 14px; }
+
+  .copied-msg { font-size: 12px; color: #5ba85b; margin-left: 4px; display: none; }
+</style>
+</head>
+<body>
+
+<div class="header-row">
+  <h1>Steam Cart Parser + ITAD</h1>
+  <a id="downloadBtn" download="SteamCartParser.html">
+    <button class="btn-download">Download Local Version</button>
+  </a>
+</div>
+<p class="subtitle">Paste your Steam cart text below and click Parse. Use your free ITAD API key to fetch best prices.</p>
+
+<div class="api-row">
+  <label>ITAD API Key</label>
+  <input type="password" id="apiKey" placeholder="Paste your IsThereAnyDeal API key here..." oninput="saveKey()" />
+  <span class="api-hint">Free key at <a href="https://isthereanydeal.com" target="_blank">isthereanydeal.com</a> → Settings → API</span>
+</div>
+
+<textarea id="input" placeholder="Paste Steam cart text here..."></textarea>
+<p id="error">No items found — make sure you pasted the full Steam cart text.</p>
+
+<div class="btn-row">
+  <button class="btn-primary" onclick="parse()">Parse Cart</button>
+  <button class="btn-secondary" onclick="clearAll()">Clear</button>
+  <button class="btn-itad" onclick="fetchITAD()" id="itadBtn" style="display:none;">Fetch Best Prices</button>
+  <button class="btn-copy" onclick="copyTable()" id="copyBtn" style="display:none;">Copy as Text</button>
+  <button class="btn-discord" onclick="copyDiscord()" id="discordBtn" style="display:none;">Copy for Discord</button>
+  <span class="copied-msg" id="copiedMsg">Copied!</span>
+  <span id="itad-status"></span>
+</div>
+
+<div id="discord-parts"></div>
+<div id="output"></div>
+
+<script>
+let parsedItems = [];
+
+window.onload = () => {
+  const saved = localStorage.getItem('itad_api_key');
+  if (saved) document.getElementById('apiKey').value = saved;
+
+  const localFile = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Steam Cart Parser</title>
+</head>
+<body>
+<script>window.location.href="https://thewowcollector.github.io/steam-cart-parser/SteamCartParser.html";<\/script>
+</body>
+</html>`;
+
+  fetch(window.location.href)
+    .then(r => r.text())
+    .then(html => {
+      const blob = new Blob([html], { type: 'text/html' });
+      document.getElementById('downloadBtn').href = URL.createObjectURL(blob);
+    });
+};
+
+function saveKey() {
+  localStorage.setItem('itad_api_key', document.getElementById('apiKey').value.trim());
+}
+
+function parse() {
+  const raw = document.getElementById('input').value.trim();
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const error = document.getElementById('error');
+  error.style.display = 'none';
+  parsedItems = [];
+
+  let i = 0;
+  while (i < lines.length) {
+    const title = lines[i];
+    if (!title || title === 'Add' || title === 'Remove' || title === '|' ||
+        title.startsWith('Includes ') || title.startsWith('-') || title.startsWith('$')) {
+      i++; continue;
+    }
+    if (lines[i + 1] === title) {
+      i += 2;
+      if (lines[i] && lines[i].startsWith('Includes ')) i++;
+      const disc = lines[i];
+      if (!disc || !disc.startsWith('-')) { i++; continue; }
+      i++;
+      const orig = lines[i];
+      if (!orig || !orig.startsWith('$')) { i++; continue; }
+      i++;
+      const sale = lines[i];
+      if (!sale || !sale.startsWith('$')) { i++; continue; }
+      i++;
+      while (i < lines.length && (lines[i] === 'Add' || lines[i] === '|' || lines[i] === 'Remove')) i++;
+      parsedItems.push({ title, disc, orig, sale, currentPrice: null, bestPrice: null });
+    } else {
+      i++;
+    }
+  }
+
+  if (parsedItems.length === 0) {
+    error.style.display = 'block';
+    document.getElementById('output').innerHTML = '';
+    document.getElementById('copyBtn').style.display = 'none';
+    document.getElementById('discordBtn').style.display = 'none';
+    document.getElementById('itadBtn').style.display = 'none';
+    return;
+  }
+
+  renderTable(false);
+  document.getElementById('copyBtn').style.display = 'inline-block';
+  document.getElementById('discordBtn').style.display = 'inline-block';
+  document.getElementById('itadBtn').style.display = 'inline-block';
+  document.getElementById('copiedMsg').style.display = 'none';
+  document.getElementById('discord-parts').innerHTML = '';
+}
+
+function priceCell(val, saleVal) {
+  if (val === 'loading') return `<td class="best-price loading right">...</td>`;
+  if (!val || val === 'N/A') return `<td class="best-price right">N/A</td>`;
+  const v = parseFloat(val.replace('$', ''));
+  const cls = v < saleVal ? 'best-price better right' : 'best-price right';
+  return `<td class="${cls}">${val}</td>`;
+}
+
+function renderTable(showExtraCols) {
+  const total = parsedItems.reduce((sum, it) => sum + parseFloat(it.sale.replace('$', '')), 0);
+
+  let html = `<table><thead><tr>
+    <th class="num">#</th>
+    <th>Title</th>
+    <th class="right">Discount</th>
+    <th class="right">Original</th>
+    <th class="right">Sale Price</th>
+    ${showExtraCols ? '<th class="right">Best Current</th><th class="right">Best Ever</th>' : ''}
+  </tr></thead><tbody>`;
+
+  parsedItems.forEach((it, idx) => {
+    const saleVal = parseFloat(it.sale.replace('$', ''));
+    const extraCells = showExtraCols ? priceCell(it.currentPrice, saleVal) + priceCell(it.bestPrice, saleVal) : '';
+    html += `<tr>
+      <td class="num">${idx + 1}</td>
+      <td>${it.title}</td>
+      <td class="disc right">${it.disc}</td>
+      <td class="orig right">${it.orig}</td>
+      <td class="sale right">${it.sale}</td>
+      ${extraCells}
+    </tr>`;
+  });
+
+  html += `</tbody><tfoot><tr>
+    <td></td>
+    <td>Total (${parsedItems.length} items)</td>
+    <td></td><td></td>
+    <td class="right">$${total.toFixed(2)}</td>
+    ${showExtraCols ? '<td></td><td></td>' : ''}
+  </tr></tfoot></table>`;
+
+  document.getElementById('output').innerHTML = html;
+}
+
+function cleanTitle(title) {
+  return title
+    .replace(/™|®|©/g, '')
+    .replace(/\s*[-–]\s*(game of the year|goty|standard edition|gold edition|definitive edition|complete bundle|legendary edition|complete edition)\s*$/i, '')
+    .trim();
+}
+
+async function fetchITAD() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { alert('Please enter your IsThereAnyDeal API key first.'); return; }
+
+  const btn = document.getElementById('itadBtn');
+  const status = document.getElementById('itad-status');
+  btn.disabled = true;
+  btn.textContent = 'Fetching...';
+  status.style.display = 'inline';
+
+  parsedItems.forEach(it => { it.currentPrice = 'loading'; it.bestPrice = 'loading'; });
+  renderTable(true);
+
+  const gameIds = [];
+
+  for (let i = 0; i < parsedItems.length; i++) {
+    const item = parsedItems[i];
+    status.textContent = `Searching ${i + 1} of ${parsedItems.length}...`;
+    try {
+      const query = cleanTitle(item.title);
+      const searchRes = await fetch(`https://api.isthereanydeal.com/games/search/v1?title=${encodeURIComponent(query)}&key=${apiKey}`);
+      if (!searchRes.ok) throw new Error(`HTTP ${searchRes.status}`);
+      const searchData = await searchRes.json();
+      if (!searchData || searchData.length === 0) {
+        item.currentPrice = 'N/A'; item.bestPrice = 'N/A';
+        gameIds.push(null);
+      } else {
+        gameIds.push(searchData[0].id);
+      }
+    } catch (e) {
+      item.currentPrice = 'N/A'; item.bestPrice = 'N/A';
+      gameIds.push(null);
+      if (i === 0) {
+        status.textContent = `Error: ${e.message}`;
+        renderTable(true);
+        btn.disabled = false;
+        btn.textContent = 'Retry';
+        return;
+      }
+    }
+  }
+
+  const validIds = gameIds.filter(id => id !== null);
+
+  if (validIds.length > 0) {
+    status.textContent = 'Fetching prices...';
+    try {
+      const [lowRes, curRes] = await Promise.all([
+        fetch(`https://api.isthereanydeal.com/games/historylows/v1?key=${apiKey}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validIds)
+        }),
+        fetch(`https://api.isthereanydeal.com/games/prices/v3?key=${apiKey}&country=US`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validIds)
+        })
+      ]);
+
+      const lowData = lowRes.ok ? await lowRes.json() : [];
+      const curData = curRes.ok ? await curRes.json() : [];
+
+      const lowMap = {};
+      lowData.forEach(entry => { if (entry.low) lowMap[entry.id] = entry.low.price.amount; });
+
+      const curMap = {};
+      curData.forEach(entry => {
+        if (entry.deals && entry.deals.length > 0) {
+          curMap[entry.id] = Math.min(...entry.deals.map(d => d.price.amount));
+        }
+      });
+
+      parsedItems.forEach((item, i) => {
+        const id = gameIds[i];
+        if (!id) return;
+        item.bestPrice = lowMap[id] !== undefined ? '$' + lowMap[id].toFixed(2) : 'N/A';
+        item.currentPrice = curMap[id] !== undefined ? '$' + curMap[id].toFixed(2) : 'N/A';
+      });
+    } catch (e) {
+      parsedItems.forEach(it => {
+        if (it.bestPrice === 'loading') it.bestPrice = 'N/A';
+        if (it.currentPrice === 'loading') it.currentPrice = 'N/A';
+      });
+    }
+  }
+
+  renderTable(true);
+  status.textContent = 'Done!';
+  setTimeout(() => { status.style.display = 'none'; }, 2000);
+  btn.disabled = false;
+  btn.textContent = 'Refresh Prices';
+}
+
+function clearAll() {
+  document.getElementById('input').value = '';
+  document.getElementById('output').innerHTML = '';
+  document.getElementById('error').style.display = 'none';
+  document.getElementById('copyBtn').style.display = 'none';
+  document.getElementById('discordBtn').style.display = 'none';
+  document.getElementById('itadBtn').style.display = 'none';
+  document.getElementById('copiedMsg').style.display = 'none';
+  document.getElementById('discord-parts').innerHTML = '';
+  document.getElementById('itad-status').style.display = 'none';
+  parsedItems = [];
+}
+
+function copyDiscord() {
+  if (parsedItems.length === 0) return;
+  const hasCurrent = parsedItems.some(it => it.currentPrice && it.currentPrice !== 'loading');
+  const hasBest = parsedItems.some(it => it.bestPrice && it.bestPrice !== 'loading');
+  const total = parsedItems.reduce((sum, it) => sum + parseFloat(it.sale.replace('$', '')), 0);
+
+  const colW = {
+    num: 3,
+    title: Math.min(45, Math.max(...parsedItems.map(it => it.title.length), 5)),
+    disc: 8, orig: 9, sale: 10, cur: 13, best: 10
+  };
+
+  const pad = (s, w, right = false) => right ? String(s).padStart(w) : String(s).padEnd(w);
+  const rowWidth = colW.num + 2 + colW.title + 2 + colW.disc + 2 + colW.orig + 2 + colW.sale
+    + (hasCurrent ? 2 + colW.cur : 0) + (hasBest ? 2 + colW.best : 0);
+  const divider = '─'.repeat(rowWidth);
+
+  const header = pad('#', colW.num) + '  ' + pad('Title', colW.title) + '  ' + pad('Discount', colW.disc, true) + '  ' + pad('Original', colW.orig, true) + '  ' + pad('Sale Price', colW.sale, true)
+    + (hasCurrent ? '  ' + pad('Best Current', colW.cur, true) : '')
+    + (hasBest ? '  ' + pad('Best Ever', colW.best, true) : '');
+
+  const totalRow = pad('', colW.num) + '  ' + pad(`Total (${parsedItems.length} items)`, colW.title) + '  ' + pad('', colW.disc) + '  ' + pad('', colW.orig) + '  ' + pad('$' + total.toFixed(2), colW.sale, true)
+    + (hasCurrent ? '  ' + pad('', colW.cur) : '')
+    + (hasBest ? '  ' + pad('', colW.best) : '');
+
+  const itemRows = parsedItems.map((it, idx) => {
+    const titleTrunc = it.title.length > colW.title ? it.title.slice(0, colW.title - 1) + '…' : it.title;
+    const cur = hasCurrent ? (it.currentPrice && it.currentPrice !== 'loading' ? it.currentPrice : 'N/A') : '';
+    const best = hasBest ? (it.bestPrice && it.bestPrice !== 'loading' ? it.bestPrice : 'N/A') : '';
+    return pad(idx + 1, colW.num) + '  ' + pad(titleTrunc, colW.title) + '  ' + pad(it.disc, colW.disc, true) + '  ' + pad(it.orig, colW.orig, true) + '  ' + pad(it.sale, colW.sale, true)
+      + (hasCurrent ? '  ' + pad(cur, colW.cur, true) : '')
+      + (hasBest ? '  ' + pad(best, colW.best, true) : '');
+  });
+
+  const LIMIT = 1990;
+  const blocks = [];
+  let currentRows = [];
+
+  const buildBlock = (rows, isLast) => {
+    let lines = [header, divider, ...rows, divider];
+    if (isLast) lines.push(totalRow);
+    return '```\n' + lines.join('\n') + '\n```';
+  };
+
+  for (let i = 0; i < itemRows.length; i++) {
+    currentRows.push(itemRows[i]);
+    const isLast = i === itemRows.length - 1;
+    const preview = buildBlock(currentRows, isLast);
+    if (preview.length > LIMIT) {
+      currentRows.pop();
+      blocks.push(buildBlock(currentRows, false));
+      currentRows = [itemRows[i]];
+    }
+    if (isLast && currentRows.length > 0) blocks.push(buildBlock(currentRows, true));
+  }
+
+  const container = document.getElementById('discord-parts');
+  container.innerHTML = '';
+
+  if (blocks.length === 1) {
+    navigator.clipboard.writeText(blocks[0]).then(() => {
+      const msg = document.getElementById('copiedMsg');
+      msg.textContent = 'Copied!';
+      msg.style.display = 'inline';
+      setTimeout(() => { msg.style.display = 'none'; }, 2000);
+    });
+    return;
+  }
+
+  blocks.forEach((block, i) => {
+    const wrap = document.createElement('div');
+    wrap.style.cssText = 'margin-top: 12px; display: flex; align-items: center; gap: 10px;';
+    const btn = document.createElement('button');
+    btn.className = 'btn-discord';
+    btn.textContent = `Copy Message ${i + 1} of ${blocks.length}`;
+    btn.style.whiteSpace = 'nowrap';
+    btn.onclick = () => {
+      navigator.clipboard.writeText(block).then(() => {
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = `Copy Message ${i + 1} of ${blocks.length}`, 2000);
+      });
+    };
+    const preview = document.createElement('span');
+    preview.style.cssText = 'font-size: 12px; color: #8f98a0;';
+    const prevCount = blocks.slice(0, i).reduce((sum, b) => sum + b.split('\n').filter(l => l.match(/^\s*\d/)).length, 0);
+    const thisCount = blocks.slice(0, i + 1).reduce((sum, b) => sum + b.split('\n').filter(l => l.match(/^\s*\d/)).length, 0);
+    preview.textContent = `items ${prevCount + 1}–${thisCount}`;
+    wrap.appendChild(btn);
+    wrap.appendChild(preview);
+    container.appendChild(wrap);
+  });
+}
+
+function copyTable() {
+  if (parsedItems.length === 0) return;
+  const hasCurrent = parsedItems.some(it => it.currentPrice && it.currentPrice !== 'loading');
+  const hasBest = parsedItems.some(it => it.bestPrice && it.bestPrice !== 'loading');
+  const total = parsedItems.reduce((sum, it) => sum + parseFloat(it.sale.replace('$', '')), 0);
+  let text = '#\tTitle\tDiscount\tOriginal\tSale Price' + (hasCurrent ? '\tBest Current' : '') + (hasBest ? '\tBest Ever' : '') + '\n';
+  parsedItems.forEach((it, idx) => {
+    text += `${idx + 1}\t${it.title}\t${it.disc}\t${it.orig}\t${it.sale}`
+      + (hasCurrent ? `\t${it.currentPrice || 'N/A'}` : '')
+      + (hasBest ? `\t${it.bestPrice || 'N/A'}` : '') + '\n';
+  });
+  text += `\nTotal (${parsedItems.length} items)\t\t\t$${total.toFixed(2)}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const msg = document.getElementById('copiedMsg');
+    msg.style.display = 'inline';
+    setTimeout(() => msg.style.display = 'none', 2000);
+  });
+}
+</script>
+</body>
+</html>
