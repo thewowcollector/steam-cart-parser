@@ -90,11 +90,18 @@
   tfoot td { padding: 10px 12px; color: #ffffff; font-weight: 500; font-size: 14px; }
 
   .copied-msg { font-size: 12px; color: #5ba85b; margin-left: 4px; display: none; }
+  .btn-download { background: #2a475e; color: #c6d4df; border: 1px solid #4c6b8a; }
+  .btn-download:hover { background: #344d6b; }
 </style>
 </head>
 <body>
 
-<h1>Steam Cart Parser</h1>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+  <h1>Steam Cart Parser</h1>
+  <a id="downloadBtn" download="SteamCartParser.html" style="display:none;">
+    <button class="btn-download">Download Local Version</button>
+  </a>
+</div>
 <p class="subtitle">Paste your Steam cart text below and click Parse.</p>
 
 <textarea id="input" placeholder="Paste Steam cart text here..."></textarea>
@@ -113,6 +120,13 @@
 
 <script>
 let parsedItems = [];
+
+window.addEventListener('load', () => {
+  const btn = document.getElementById('downloadBtn');
+  const blob = new Blob([document.documentElement.outerHTML], { type: 'text/html' });
+  btn.href = URL.createObjectURL(blob);
+  btn.style.display = 'inline';
+});
 
 function parse() {
   const raw = document.getElementById('input').value.trim();
