@@ -361,7 +361,7 @@ async function fetchITAD() {
     status.textContent = 'Fetching prices...';
     try {
       const [lowRes, curRes] = await Promise.all([
-        workerFetch('/games/historylows/v1', apiKey, 'POST', validIds),
+        workerFetch('/games/historylows/v2', apiKey, 'POST', validIds),
         workerFetch('/games/prices/v3', apiKey, 'POST', validIds, '&country=US')
       ]);
 
