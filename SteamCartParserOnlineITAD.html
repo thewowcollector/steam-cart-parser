@@ -360,33 +360,17 @@ async function fetchITAD() {
   if (validIds.length > 0) {
     status.textContent = 'Fetching prices...';
     try {
-      const [lowRes, curRes] = await Promise.all([
-        workerFetch('/games/historylows/v2', apiKey, 'POST', validIds),
-        workerFetch('/games/prices/v3', apiKey, 'POST', validIds, '&country=US')
-      ]);
-
-      const lowData = lowRes.ok ? await lowRes.json() : [];
+      const curRes = await workerFetch('/games/prices/v3', apiKey, 'POST', validIds, '&country=US');
       const curData = curRes.ok ? await curRes.json() : [];
 
-      console.log('History lows raw:', JSON.stringify(lowData).slice(0, 500));
-      console.log('Current prices raw:', JSON.stringify(curData).slice(0, 500));
-
       const lowMap = {};
-      if (Array.isArray(lowData)) {
-        lowData.forEach(entry => {
-          if (entry.low) lowMap[entry.id] = entry.low.price.amount;
-        });
-      } else if (typeof lowData === 'object') {
-        Object.entries(lowData).forEach(([id, val]) => {
-          if (val && val.low) lowMap[id] = val.low.price.amount;
-          else if (val && val.price) lowMap[id] = val.price.amount;
-        });
-      }
-
       const curMap = {};
       curData.forEach(entry => {
         if (entry.deals && entry.deals.length > 0) {
           curMap[entry.id] = Math.min(...entry.deals.map(d => d.price.amount));
+        }
+        if (entry.historyLow && entry.historyLow.all) {
+          lowMap[entry.id] = entry.historyLow.all.amount;
         }
       });
 
